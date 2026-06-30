@@ -61,108 +61,122 @@ class _PasswordModalState extends State<PasswordModal> {
   Widget build(BuildContext context) {
     final theme = RetailTheme.of(Provider.of<SpecsProvider>(context).store);
 
-    return Scaffold(
-      backgroundColor: Colors.black.withValues(alpha: 0.85),
-      body: Center(
-        child: Container(
-          width: 380,
-          padding: const EdgeInsets.all(30),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            boxShadow: [
-              BoxShadow(
-                color: theme.primary.withValues(alpha: 0.1),
-                blurRadius: 40,
-                spreadRadius: 2,
-              )
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Acceso Restringido',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+    final provider = Provider.of<SpecsProvider>(context, listen: false);
+
+    return Listener(
+      onPointerDown: (_) => provider.resetInAppActivityTimer(),
+      onPointerHover: (_) => provider.resetInAppActivityTimer(),
+      onPointerSignal: (_) => provider.resetInAppActivityTimer(),
+      child: KeyboardListener(
+        focusNode: FocusNode(),
+        autofocus: true,
+        onKeyEvent: (_) => provider.resetInAppActivityTimer(),
+        child: Scaffold(
+          backgroundColor: Colors.black.withValues(alpha: 0.85),
+          body: Center(
+            child: Container(
+              width: 380,
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primary.withValues(alpha: 0.1),
+                    blurRadius: 40,
+                    spreadRadius: 2,
+                  )
+                ],
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Ingresa el código para editar la configuración.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 25),
-              TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                obscureText: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Código...',
-                  hintStyle: const TextStyle(color: Colors.grey),
-                  filled: true,
-                  fillColor: Colors.black.withValues(alpha: 0.2),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: theme.primary),
-                  ),
-                  errorText: _hasError ? 'Código incorrecto. Inténtalo de nuevo.' : null,
-                  errorStyle: const TextStyle(color: Colors.redAccent),
-                ),
-                onSubmitted: (_) => _verify(),
-              ),
-              const SizedBox(height: 25),
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _verify,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primary,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'Entrar',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                  const Text(
+                    'Acceso Restringido',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: TextButton(
-                      onPressed: widget.onClose,
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Ingresa el código para editar la configuración.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+                  TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      hintText: '••••••',
+                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+                      filled: true,
+                      fillColor: Colors.black.withValues(alpha: 0.2),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: theme.primary),
+                      ),
+                      errorText: _hasError ? 'Código incorrecto' : null,
+                      errorStyle: const TextStyle(color: Colors.redAccent),
+                    ),
+                    onSubmitted: (_) => _verify(),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _verify,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.primary,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'Entrar',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
-                      child: const Text('Cancelar'),
-                    ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: widget.onClose,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                            ),
+                          ),
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

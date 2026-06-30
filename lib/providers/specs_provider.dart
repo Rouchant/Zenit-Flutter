@@ -249,8 +249,6 @@ class SpecsProvider extends ChangeNotifier {
   // --- LÓGICA DE INACTIVIDAD IN-APP ---
 
   void resetInAppActivityTimer() {
-    if (_isModalOpen) return;
-
     _inAppInactivityTimer?.cancel();
     
     if (_isVideoMode) {
@@ -277,13 +275,10 @@ class SpecsProvider extends ChangeNotifier {
       onIdleTriggered: () {
         // Al dispararse por inactividad de OS, re-maximizar y poner screensaver
         _isVideoMode = true;
+        _window.stopSystemIdleMonitor();
         notifyListeners();
       },
-      onActivity: () {
-        // Si detecta actividad física tras la restauración
-        _isVideoMode = false;
-        notifyListeners();
-      },
+      onActivity: () {},
     );
   }
 

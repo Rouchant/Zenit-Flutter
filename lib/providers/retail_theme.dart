@@ -24,7 +24,7 @@ class RetailTheme {
   /// Returns the store logo widget (SVG or PNG depending on the store)
   Widget get storeLogoWidget {
     if (logoPngAsset != null) {
-      return Image.asset(logoPngAsset!, height: 60, fit: BoxFit.contain);
+      return Image.asset(logoPngAsset!, height: 80, fit: BoxFit.contain);
     }
     if (logoAsset != null) {
       return SvgPicture.asset(logoAsset!, height: 60, semanticsLabel: 'Store Logo');

@@ -291,142 +291,152 @@ class _AdminModalState extends State<AdminModal> {
     final provider = Provider.of<SpecsProvider>(context);
     final theme = RetailTheme.of(provider.store);
 
-    return Scaffold(
-      backgroundColor: Colors.black.withValues(alpha: 0.85),
-      body: Center(
-        child: Container(
-          width: 1000,
-          height: 750,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.only(left: 30, right: 30, top: 35, bottom: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    return Listener(
+      onPointerDown: (_) => provider.resetInAppActivityTimer(),
+      onPointerHover: (_) => provider.resetInAppActivityTimer(),
+      onPointerSignal: (_) => provider.resetInAppActivityTimer(),
+      child: KeyboardListener(
+        focusNode: FocusNode(),
+        autofocus: true,
+        onKeyEvent: (_) => provider.resetInAppActivityTimer(),
+        child: Scaffold(
+          backgroundColor: Colors.black.withValues(alpha: 0.85),
+          body: Center(
+            child: Container(
+              width: 1000,
+              height: 750,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.only(left: 30, right: 30, top: 35, bottom: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Personalizar Zenit',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              children: [
+                                const Text(
+                                  'Personalizar Zenit',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'v1.8.0',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'v1.8.0',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.4),
-                                fontSize: 12,
+                            const SizedBox(height: 4),
+                            const Opacity(
+                              opacity: 0.01,
+                              child: Text(
+                                'Developed by Juan Marchant',
+                                style: TextStyle(color: Colors.grey, fontSize: 11),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        const Opacity(
-                          opacity: 0.01,
-                          child: Text(
-                            'Developed by Juan Marchant',
-                            style: TextStyle(color: Colors.grey, fontSize: 11),
-                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.grey),
+                          onPressed: widget.onClose,
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.grey),
-                      onPressed: widget.onClose,
+                  ),
+
+                  // Tabs Menu
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Row(
+                      children: [
+                        _buildTabBtn('hardware', 'Hardware'),
+                        _buildTabBtn('visual', 'Visual (Videos y Fondos)'),
+                        _buildTabBtn('tienda', 'Tienda y Seguridad'),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
 
-              // Tabs Menu
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30),
-                child: Row(
-                  children: [
-                    _buildTabBtn('hardware', 'Hardware'),
-                    _buildTabBtn('visual', 'Visual (Videos y Fondos)'),
-                    _buildTabBtn('tienda', 'Tienda y Seguridad'),
-                  ],
-                ),
-              ),
-
-              // Body scroll
-              Expanded(
-                child: Scrollbar(
-                  controller: _scrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 30, right: 40, top: 15, bottom: 20),
-                      child: Form(
-                        key: _formKey,
-                        child: _buildTabContent(theme, provider),
+                  // Body scroll
+                  Expanded(
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 30, right: 40, top: 15, bottom: 20),
+                          child: Form(
+                            key: _formKey,
+                            child: _buildTabContent(theme, provider),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
 
-              // Footer Actions
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF151515),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(24),
-                    bottomRight: Radius.circular(24),
+                  // Footer Actions
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF151515),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(24),
+                        bottomRight: Radius.circular(24),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton(
+                          onPressed: _save,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.primary,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'Guardar Cambios',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 15),
+                        TextButton(
+                          onPressed: widget.onClose,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                            ),
+                          ),
+                          child: const Text('Cerrar'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    ElevatedButton(
-                      onPressed: _save,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primary,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'Guardar Cambios',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    TextButton(
-                      onPressed: widget.onClose,
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                        ),
-                      ),
-                      child: const Text('Cerrar'),
-                    ),
-                  ],
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

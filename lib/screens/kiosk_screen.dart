@@ -41,9 +41,24 @@ class _KioskScreenState extends State<KioskScreen> {
     _bgController = VideoController(_bgPlayer);
     _landingController = VideoController(_landingPlayer);
 
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startKioskVideos();
     });
+    
+    // Escuchar cambios de inactividad para cerrar modales si entra el screensaver
+    final provider = Provider.of<SpecsProvider>(context, listen: false);
+    provider.addListener(_onProviderChange);
+  }
+
+  void _onProviderChange() {
+    final provider = Provider.of<SpecsProvider>(context, listen: false);
+    if (provider.isVideoMode && mounted) {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.popUntil((route) => route.isFirst);
+      }
+    }
   }
 
   void _startKioskVideos() {
@@ -162,6 +177,10 @@ class _KioskScreenState extends State<KioskScreen> {
 
   @override
   void dispose() {
+    try {
+      final provider = Provider.of<SpecsProvider>(context, listen: false);
+      provider.removeListener(_onProviderChange);
+    } catch (_) {}
     _bgPlayer.dispose();
     _landingPlayer.dispose();
     super.dispose();
@@ -231,27 +250,26 @@ class _KioskScreenState extends State<KioskScreen> {
           onKeyEvent: (_) => provider.resetInAppActivityTimer(),
           child: Stack(
             children: [
-              // --- FONDO: Imagen estática con patrón ---
-              SizedBox.expand(
-                child: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    theme.primary.withValues(alpha: 0.45),
-                    BlendMode.srcATop,
-                  ),
-                  child: Image.asset(
-                    provider.isAsus ? 'assets/images/background-asus.png' : 'assets/images/background-generic.png',
-                    fit: BoxFit.cover,
+              // Base sólida del color primario del tema para brillo máximo y saturación pura
+              Positioned.fill(
+                child: Container(color: theme.primary),
+              ),
+              // --- FONDO: Imagen estática con patrón (solo si el video no está listo)
+              if (!_playersInitialized)
+                SizedBox.expand(
+                  child: Opacity(
+                    opacity: 0.16,
+                    child: Image.asset(
+                      provider.isAsus ? 'assets/images/background-asus.png' : 'assets/images/background-generic.png',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              ),
               // Video Loop de Fondo
               if (_playersInitialized)
                 SizedBox.expand(
-                  child: ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      theme.primary.withValues(alpha: 0.55),
-                      BlendMode.srcATop,
-                    ),
+                  child: Opacity(
+                    opacity: 0.22,
                     child: Video(
                       controller: _bgController,
                       fit: BoxFit.cover,
@@ -267,8 +285,8 @@ class _KioskScreenState extends State<KioskScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        theme.gradientStart.withValues(alpha: 0.2),
-                        theme.gradientEnd.withValues(alpha: 0.5),
+                        theme.gradientStart.withValues(alpha: 0.15),
+                        theme.gradientEnd.withValues(alpha: 0.4),
                       ],
                     ),
                   ),
@@ -302,9 +320,9 @@ class _KioskScreenState extends State<KioskScreen> {
                               // CrossAxisAlignment.center: alinear video y especificaciones al centro vertical
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                // Izquierda: ~35% del ancho total → flex 7
+                                // Izquierda: ~30% del ancho total → flex 6
                                 Expanded(
-                                  flex: 7,
+                                  flex: 6,
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -316,9 +334,9 @@ class _KioskScreenState extends State<KioskScreen> {
                                   ),
                                 ),
                                 SizedBox(width: colGap),
-                                // Derecha: ~60% del ancho total → flex 12
+                                // Derecha: ~70% del ancho total → flex 13
                                 Expanded(
-                                  flex: 12,
+                                  flex: 13,
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -335,8 +353,13 @@ class _KioskScreenState extends State<KioskScreen> {
                                               width: 260,
                                               child: _buildWarrantyTriggerButton(theme),
                                             ),
-                                          // Derecha: Precios
-                                          _buildSeparatePricesContainer(provider, theme),
+                                          // Derecha: Precios (envuelto en Flexible y Align para mantener ancho ceñido y alineación derecha)
+                                          Flexible(
+                                            child: Align(
+                                              alignment: Alignment.topRight,
+                                              child: _buildSeparatePricesContainer(provider, theme),
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -402,7 +425,7 @@ class _KioskScreenState extends State<KioskScreen> {
     } else if (brandRaw.isNotEmpty) {
       brandFormatted = brandRaw[0].toUpperCase() + brandRaw.substring(1);
     }
-    final String badgeText = '${brandFormatted} ${modelRaw}'.trim();
+    final String badgeText = '$brandFormatted $modelRaw'.trim();
     final String textToDisplay = badgeText.isNotEmpty ? badgeText : provider.store.name.toUpperCase();
 
     Widget brandLogo;
@@ -746,7 +769,7 @@ class _KioskScreenState extends State<KioskScreen> {
       child: AspectRatio(
         aspectRatio: 16 / 9,
         child: ColoredBox(
-          color: Colors.black,
+          color: theme.primary,
           child: Stack(
             children: [
               // Video Loop del Home en 16:9
@@ -754,7 +777,7 @@ class _KioskScreenState extends State<KioskScreen> {
                 Positioned.fill(
                   child: Video(
                     controller: _landingController,
-                    fit: BoxFit.contain,
+                    fit: BoxFit.cover,
                     controls: NoVideoControls,
                   ),
                 ),
@@ -809,10 +832,12 @@ class _KioskScreenState extends State<KioskScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (hasPrimary) ...[
             // Línea de precio exclusivo tarjeta
             Row(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Column(

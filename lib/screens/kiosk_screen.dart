@@ -9,7 +9,6 @@ import '../widgets/admin_modal.dart';
 import '../widgets/first_start_modal.dart';
 import '../widgets/password_modal.dart';
 import '../widgets/screensaver_player.dart';
-import '../widgets/specs_modal.dart';
 
 class KioskScreen extends StatefulWidget {
   const KioskScreen({super.key});
@@ -160,23 +159,6 @@ class _KioskScreenState extends State<KioskScreen> {
     );
   }
 
-  void _showSpecsDetail() {
-    final provider = Provider.of<SpecsProvider>(context, listen: false);
-    provider.isModalOpen = true;
-    _pauseVideos();
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => SpecsModal(
-        onClose: () {
-          Navigator.of(context).pop();
-          provider.isModalOpen = false;
-          _resumeVideos();
-        },
-      ),
-    );
-  }
 
   @override
   void dispose() {
@@ -251,18 +233,30 @@ class _KioskScreenState extends State<KioskScreen> {
             children: [
               // --- FONDO: Imagen estática con patrón ---
               SizedBox.expand(
-                child: Image.asset(
-                  provider.isAsus ? 'assets/images/background-asus.png' : 'assets/images/background-generic.png',
-                  fit: BoxFit.cover,
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    theme.primary.withValues(alpha: 0.45),
+                    BlendMode.srcATop,
+                  ),
+                  child: Image.asset(
+                    provider.isAsus ? 'assets/images/background-asus.png' : 'assets/images/background-generic.png',
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               // Video Loop de Fondo
               if (_playersInitialized)
                 SizedBox.expand(
-                  child: Video(
-                    controller: _bgController,
-                    fit: BoxFit.cover,
-                    controls: NoVideoControls,
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      theme.primary.withValues(alpha: 0.55),
+                      BlendMode.srcATop,
+                    ),
+                    child: Video(
+                      controller: _bgController,
+                      fit: BoxFit.cover,
+                      controls: NoVideoControls,
+                    ),
                   ),
                 ),
               // Capa de Overlay Gradiente (Retail)
@@ -273,8 +267,8 @@ class _KioskScreenState extends State<KioskScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        theme.gradientStart,
-                        theme.gradientEnd,
+                        theme.gradientStart.withValues(alpha: 0.2),
+                        theme.gradientEnd.withValues(alpha: 0.5),
                       ],
                     ),
                   ),
@@ -305,17 +299,18 @@ class _KioskScreenState extends State<KioskScreen> {
                           // Cuerpo principal: 90% restante
                           Expanded(
                             child: Row(
-                              // CrossAxisAlignment.start: el top del video alineado con la primera tarjeta
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              // CrossAxisAlignment.center: alinear video y especificaciones al centro vertical
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 // Izquierda: ~35% del ancho total → flex 7
                                 Expanded(
                                   flex: 7,
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Expanded(child: _buildSpecsGrid(provider, theme)),
-                                      SizedBox(height: sh * 0.015),
+                                      _buildSpecsGrid(provider, theme),
+                                      const SizedBox(height: 24),
                                       _buildCtaButton(provider, theme),
                                     ],
                                   ),
@@ -326,13 +321,24 @@ class _KioskScreenState extends State<KioskScreen> {
                                   flex: 12,
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       _buildLandingVideoBox(provider, theme),
-                                      // Botón Garantía Perfecta (solo ASUS con opción activa)
-                                      if (provider.isAsus && provider.currentSpecs['showAsusWarrantyTicker'] == true) ...[
-                                        SizedBox(height: sh * 0.012),
-                                        _buildWarrantyTriggerButton(theme),
-                                      ],
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Izquierda: Botón Garantía Perfecta (solo ASUS con opción activa)
+                                          if (provider.isAsus && provider.currentSpecs['showAsusWarrantyTicker'] == true)
+                                            SizedBox(
+                                              width: 260,
+                                              child: _buildWarrantyTriggerButton(theme),
+                                            ),
+                                          // Derecha: Precios
+                                          _buildSeparatePricesContainer(provider, theme),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -386,49 +392,60 @@ class _KioskScreenState extends State<KioskScreen> {
 
   Widget _buildHeader(SpecsProvider provider, RetailTheme theme) {
     final brand = (provider.currentSpecs['brand'] ?? '').toString().toLowerCase();
+    
+    // Formatear Marca + Modelo para el badge
+    final String brandRaw = (provider.currentSpecs['brand'] ?? '').toString();
+    final String modelRaw = (provider.currentSpecs['model'] ?? '').toString();
+    String brandFormatted = brandRaw;
+    if (brandRaw.toLowerCase() == 'asus') {
+      brandFormatted = 'Asus';
+    } else if (brandRaw.isNotEmpty) {
+      brandFormatted = brandRaw[0].toUpperCase() + brandRaw.substring(1);
+    }
+    final String badgeText = '${brandFormatted} ${modelRaw}'.trim();
+    final String textToDisplay = badgeText.isNotEmpty ? badgeText : provider.store.name.toUpperCase();
 
-    // Logo de marca usando SVGs de Zenit-Tauri
     Widget brandLogo;
     if (brand.contains('asus')) {
       brandLogo = SvgPicture.asset(
         'assets/images/brand-asus.svg',
-        height: 32,
+        height: 60,
         colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
       );
     } else if (brand.contains('hp') || brand.contains('hewlett')) {
       brandLogo = SvgPicture.asset(
         'assets/images/brand-hp.svg',
-        height: 32,
+        height: 60,
         colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
       );
     } else if (brand.contains('lenovo')) {
       brandLogo = SvgPicture.asset(
         'assets/images/brand-lenovo.svg',
-        height: 28,
+        height: 60,
         colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
       );
     } else if (brand.contains('acer')) {
       brandLogo = SvgPicture.asset(
         'assets/images/brand-acer.svg',
-        height: 28,
+        height: 60,
         colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
       );
     } else if (brand.contains('samsung')) {
       brandLogo = SvgPicture.asset(
         'assets/images/brand-samsung.svg',
-        height: 28,
+        height: 60,
         colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
       );
     } else if (brand.contains('dell')) {
       brandLogo = Text('DELL',
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 2));
+          style: GoogleFonts.outfit(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: 2));
     } else if (brand.contains('microsoft')) {
       brandLogo = Text('SURFACE',
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.5));
+          style: GoogleFonts.outfit(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900, letterSpacing: 1.5));
     } else {
       brandLogo = Text(
         brand.isNotEmpty ? brand.toUpperCase() : 'ZENIT',
-        style: GoogleFonts.outfit(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2),
+        style: GoogleFonts.outfit(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: 2),
       );
     }
 
@@ -443,35 +460,37 @@ class _KioskScreenState extends State<KioskScreen> {
             children: [
               brandLogo,
               // Logo Retail al lado si hay tienda configurada
-              if (theme.logoAsset != null) ...[
-                const SizedBox(width: 12),
+              if (theme.logoAsset != null || theme.logoPngAsset != null) ...[
+                const SizedBox(width: 16),
                 Container(
-                  width: 1,
-                  height: 24,
+                  width: 1.5,
+                  height: 48,
                   color: Colors.white.withValues(alpha: 0.3),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 theme.storeLogoWidget,
               ],
             ],
           ),
         ),
 
-        // Badge de tienda a la derecha (solo si hay tienda)
+        // Badge de Marca + Modelo a la derecha (solo si hay tienda)
         if (theme.logoAsset != null || theme.logoPngAsset != null)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            height: 62,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(31),
             ),
             child: Text(
-              provider.store.name.toUpperCase(),
+              textToDisplay,
               style: GoogleFonts.outfit(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 21,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
+                letterSpacing: 1.0,
               ),
             ),
           ),
@@ -483,24 +502,91 @@ class _KioskScreenState extends State<KioskScreen> {
     final specs = provider.currentSpecs;
     final processor = specs['processor'] ?? 'Cargando...';
     final gpu = specs['gpu'] ?? 'Cargando...';
+    final ramType = specs['ramType'] ?? '';
+    final cpuGen = specs['gen'] ?? '';
+    final int cores = specs['cores'] ?? 0;
+    final int threads = specs['threads'] ?? 0;
+    final String cpuSubtitle = (cores > 0 && threads > 0) ? '$cores núcleos / $threads hilos' : '';
+
+    // Determinar icono de procesador (a la izquierda)
+    String cpuIcon = 'assets/images/ui-cpu.svg';
+    final cpuVendor = _detectChipVendor(processor);
+    if (cpuVendor == 'intel') {
+      cpuIcon = 'assets/images/brand-intel.svg';
+    } else if (cpuVendor == 'amd') {
+      cpuIcon = 'assets/images/brand-amd.svg';
+    } else if (cpuVendor == 'snapdragon') {
+      cpuIcon = 'assets/images/brand-snapdragon.svg';
+    }
+
+    // Determinar icono de GPU (a la izquierda)
+    String gpuIcon = 'assets/images/ui-gpu.svg';
+    final gpuVendor = _detectChipVendor(gpu);
+    if (gpuVendor == 'nvidia') {
+      gpuIcon = 'assets/images/brand-nvidia.svg';
+    }
 
     final cards = [
-      _buildSpecCard('PROCESADOR', processor, 'assets/images/ui-cpu.svg',
-          chipVendor: _detectChipVendor(processor), theme: theme),
-      _buildSpecCard('MEMORIA RAM', specs['ram'] ?? 'Cargando...', 'assets/images/ui-ram.svg', theme: theme),
+      _buildSpecCard(
+        'PROCESADOR', 
+        processor, 
+        cpuIcon, 
+        theme: theme,
+        subtitle: cpuSubtitle.isNotEmpty ? cpuSubtitle : null,
+        suffix: cpuGen.toString().isNotEmpty && cpuGen.toString() != 'Desconocida'
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  cpuGen.toString(),
+                  style: GoogleFonts.outfit(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            : null,
+      ),
+      _buildSpecCard(
+        'MEMORIA RAM', 
+        specs['ram'] ?? 'Cargando...', 
+        'assets/images/ui-ram.svg', 
+        theme: theme,
+        suffix: ramType.toString().isNotEmpty
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  ramType.toString(),
+                  style: GoogleFonts.outfit(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            : null,
+      ),
       _buildSpecCard('ALMACENAMIENTO', specs['storage'] ?? 'Cargando...', 'assets/images/ui-storage.svg', theme: theme),
       _buildSpecCard('PANTALLA', specs['display'] ?? 'Cargando...', 'assets/images/ui-display.svg', theme: theme),
-      _buildSpecCard('GRÁFICOS', gpu, 'assets/images/ui-gpu.svg',
-          chipVendor: _detectChipVendor(gpu), theme: theme),
+      _buildSpecCard('GRÁFICOS', gpu, gpuIcon, theme: theme),
       _buildSpecCard('SISTEMA OPERATIVO', specs['os'] ?? 'Cargando...', 'assets/images/ui-windows.svg', theme: theme),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: cards.map((c) => Expanded(child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: cards.map((c) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
         child: c,
-      ))).toList(),
+      )).toList(),
     );
   }
 
@@ -514,15 +600,19 @@ class _KioskScreenState extends State<KioskScreen> {
     return null;
   }
 
-  Widget _buildSpecCard(String label, String value, String iconAsset, {
-    String? chipVendor,
+  Widget _buildSpecCard(
+    String label, 
+    String value, 
+    String iconAsset, {
     required RetailTheme theme,
+    Widget? suffix,
+    String? subtitle,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(12), // Radio 12 según especificación
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -534,88 +624,115 @@ class _KioskScreenState extends State<KioskScreen> {
       child: Row(
         children: [
           // Icono SVG de la categoria
-          SvgPicture.asset(
-            iconAsset,
-            width: 20,
-            height: 20,
-            colorFilter: const ColorFilter.mode(Color(0xFF444444), BlendMode.srcIn),
+          SizedBox(
+            width: 76,
+            height: 76,
+            child: Center(
+              child: SvgPicture.asset(
+                iconAsset,
+                width: iconAsset.contains('brand-amd') ? 48 : 60,
+                height: iconAsset.contains('brand-amd') ? 48 : 60,
+                colorFilter: iconAsset.contains('brand-') 
+                    ? null 
+                    : const ColorFilter.mode(Colors.black, BlendMode.srcIn),
+              ),
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           // Etiqueta + Valor
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Color(0xFF888888),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF888888),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    if (suffix != null) ...[
+                      const SizedBox(width: 8),
+                      suffix,
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 3),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: GoogleFonts.outfit(
                     color: Colors.black,
-                    fontSize: 13,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF555555),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          // Logo del fabricante del chip (Intel / AMD / Nvidia)
-          if (chipVendor != null) ...[
-            const SizedBox(width: 8),
-            SvgPicture.asset(
-              'assets/images/brand-$chipVendor.svg',
-              height: 18,
-              colorFilter: const ColorFilter.mode(Colors.black54, BlendMode.srcIn),
-            ),
-          ],
         ],
       ),
     );
   }
 
   Widget _buildCtaButton(SpecsProvider provider, RetailTheme theme) {
-    return GestureDetector(
-      onTap: () {
-        // Minimizar al modo flotante de prueba para que el cliente use el PC
-        _pauseVideos();
-        provider.minimizeKioskWithOSWatchdog();
-      },
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [theme.primary, theme.primary.withValues(alpha: 0.75)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: theme.primary.withValues(alpha: 0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          // Minimizar al modo flotante de prueba para que el cliente use el PC
+          _pauseVideos();
+          provider.minimizeKioskWithOSWatchdog();
+        },
         child: Center(
-          child: Text(
-            'PRUEBA ESTA PC',
-            style: GoogleFonts.outfit(
-              color: Colors.black,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
+          child: FractionallySizedBox(
+            widthFactor: 0.8,
+            child: Container(
+              height: 76,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [theme.primary, theme.primary.withValues(alpha: 0.75)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primary.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  'PRUEBA ESTA PC',
+                  style: GoogleFonts.outfit(
+                    color: Colors.black,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -651,44 +768,147 @@ class _KioskScreenState extends State<KioskScreen> {
                       Positioned(
                         top: 8,
                         right: 8,
-                        child: GestureDetector(
-                          onTap: () => setState(() => _showWarrantyOverlay = false),
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(14),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () => setState(() => _showWarrantyOverlay = false),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white70, size: 16),
                             ),
-                            child: const Icon(Icons.close, color: Colors.white70, size: 16),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-              // Boton expandir specs (esquina superior derecha)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Material(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                  child: IconButton(
-                    icon: const Icon(Icons.fullscreen, color: Colors.white, size: 20),
-                    tooltip: 'Ver especificaciones detalladas',
-                    onPressed: _showSpecsDetail,
+  Widget _buildSeparatePricesContainer(SpecsProvider provider, RetailTheme theme) {
+    final specs = provider.currentSpecs;
+    final hasPrimary = (specs['pricePrimary'] ?? '').toString().isNotEmpty;
+    final hasSecondary = (specs['priceSecondary'] ?? '').toString().isNotEmpty;
+    if (!hasPrimary && !hasSecondary) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (hasPrimary) ...[
+            // Línea de precio exclusivo tarjeta
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'EXCLUSIVO TARJETA',
+                      style: GoogleFonts.outfit(
+                        color: theme.primary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    Text(
+                      specs['pricePrimary'],
+                      style: GoogleFonts.outfit(
+                        color: theme.primary,
+                        fontSize: 41,
+                        fontWeight: FontWeight.w900,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 10),
+                _buildRetailCardIcon(provider.store),
+              ],
+            ),
+          ],
+          if (hasPrimary && hasSecondary) const SizedBox(height: 12),
+          if (hasSecondary) ...[
+            // Línea de precio todo medio de pago
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TODO MEDIO DE PAGO',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
                   ),
                 ),
-              ),
+                Text(
+                  specs['priceSecondary'],
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
-              // Precios superpuestos en la esquina inferior
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _buildOverlaidPrices(provider, theme),
+  Widget _buildWarrantyTriggerButton(RetailTheme theme) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _showWarrantyOverlay = !_showWarrantyOverlay),
+        child: Container(
+          height: 50,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1B29B5), Color(0xFF2764DE)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1B29B5).withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.shield_outlined, color: Colors.white, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Ver Garantía Perfecta',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -697,101 +917,17 @@ class _KioskScreenState extends State<KioskScreen> {
     );
   }
 
-  Widget _buildOverlaidPrices(SpecsProvider provider, RetailTheme theme) {
-    final specs = provider.currentSpecs;
-    final hasPrimary = (specs['pricePrimary'] ?? '').toString().isNotEmpty;
-    final hasSecondary = (specs['priceSecondary'] ?? '').toString().isNotEmpty;
-    if (!hasPrimary && !hasSecondary) return const SizedBox();
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            Colors.black.withValues(alpha: 0.85),
-          ],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-      child: Row(
-        children: [
-          if (hasPrimary)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('EXCLUSIVO TARJETA', style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  // Precio + logo de tarjeta en la misma fila
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        specs['pricePrimary'],
-                        style: TextStyle(color: theme.primary, fontSize: 22, fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(width: 10),
-                      _buildRetailCardIcon(provider.store),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          if (hasPrimary && hasSecondary) const SizedBox(width: 16),
-          if (hasSecondary)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('TODO MEDIO DE PAGO', style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
-                  Text(
-                    specs['priceSecondary'],
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWarrantyTriggerButton(RetailTheme theme) {
-    return GestureDetector(
-      onTap: () => setState(() => _showWarrantyOverlay = !_showWarrantyOverlay),
-      child: Container(
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.shield_outlined, color: theme.primary, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              'Ver Garantía Perfecta',
-              style: GoogleFonts.outfit(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildASUSWarrantyCard(RetailTheme theme) {
     return Container(
-      color: const Color(0xFF111111).withValues(alpha: 0.97),
-      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEBF4FF), Color(0xFFFFFFFF)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -799,52 +935,92 @@ class _KioskScreenState extends State<KioskScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Título
-                const Text(
-                  'Garantía Perfecta ASUS',
-                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                // Título y descripción
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Garantía Perfecta ASUS',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF003B7A), // Azul corporativo de ASUS
+                        fontSize: 46,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '¡Registre sus productos* para recibir una Garantía Perfecta ASUS por 1 año!',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF1E293B),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'ASUS ofrece un año de Garantía Perfecta ASUS (protección complementaria contra daños accidentales) en ciertos productos para que cuando ocurran accidentes, lo tengamos cubierto. Complete el registro del producto dentro de los primeros 90 días posteriores a la compra y disfrute de la tranquilidad con la Garantía Perfecta ASUS.',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF475569),
+                        fontSize: 16,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'ASUS ofrece un año de Garantía Perfecta (protección complementaria contra daños accidentales) en ciertos productos. Complete el registro dentro de los primeros 90 días posteriores a la compra.',
-                  style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 10, height: 1.5),
+
+                // Tres pilares en formato vertical sin tarjetas oscuras
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildWarrantyPillarCard('Derrames de líquidos', 'assets/images/icon1.svg', theme),
+                    _buildWarrantyPillarCard('Sobretensiones eléctricas', 'assets/images/icon2.svg', theme),
+                    _buildWarrantyPillarCard('Caídas accidentales', 'assets/images/icon3.svg', theme),
+                  ],
                 ),
-                const SizedBox(height: 16),
-
-                // Tres pilares
-                _buildWarrantyPillar('Derrames de líquidos', 'assets/images/icon1.svg', theme),
-                const SizedBox(height: 8),
-                _buildWarrantyPillar('Sobretensiones eléctricas', 'assets/images/icon2.svg', theme),
-                const SizedBox(height: 8),
-                _buildWarrantyPillar('Caídas accidentales', 'assets/images/icon3.svg', theme),
-
-                const SizedBox(height: 16),
 
                 // Tres pasos de registro
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildWarrantyStep('1', 'Regístrese como miembro ASUS', theme),
-                    const SizedBox(width: 8),
-                    _buildWarrantyStep('2', 'Registre su producto en 90 días', theme),
-                    const SizedBox(width: 8),
-                    _buildWarrantyStep('3', '¡Disfrute de la tranquilidad!', theme),
+                    Center(
+                      child: Text(
+                        '¿Cómo recibir la Garantía Perfecta ASUS?',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFF003B7A),
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildWarrantyStep('1', 'Regístrese como miembro de ASUS', theme),
+                        _buildWarrantyStep('2', 'Registre sus productos dentro de un plazo de 90 días posteriores a la compra', theme),
+                        _buildWarrantyStep('3', '¡Disfrute de la tranquilidad con la Garantía Perfecta ASUS!', theme),
+                      ],
+                    ),
                   ],
                 ),
               ],
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 24),
 
           // --- Columna Derecha: escudo grande ---
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const SizedBox(height: 20),
               SvgPicture.asset(
                 'assets/images/apw.svg',
-                width: 90,
-                colorFilter: ColorFilter.mode(theme.primary.withValues(alpha: 0.85), BlendMode.srcIn),
+                width: 130,
               ),
             ],
           ),
@@ -855,53 +1031,92 @@ class _KioskScreenState extends State<KioskScreen> {
 
   Widget _buildWarrantyStep(String number, String desc, RetailTheme theme) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: theme.primary,
-                borderRadius: BorderRadius.circular(11),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Cuadrado con gradiente azul para el número de paso
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF003B7A), Color(0xFF005DC2)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              child: Center(
-                child: Text(number,
-                    style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.w900)),
-              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF003B7A).withValues(alpha: 0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              desc,
-              style: const TextStyle(color: Colors.white70, fontSize: 9, height: 1.3),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'PASO',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                Text(
+                  number,
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    height: 1.0,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            desc,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              color: const Color(0xFF334155),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildWarrantyPillar(String text, String iconPath, RetailTheme theme) {
-    return Row(
-      children: [
-        SvgPicture.asset(
-          iconPath,
-          width: 22,
-          colorFilter: ColorFilter.mode(theme.primary, BlendMode.srcIn),
-        ),
-        const SizedBox(width: 15),
-        Text(
-          text,
-          style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
-        ),
-      ],
+  Widget _buildWarrantyPillarCard(String text, String iconPath, RetailTheme theme) {
+    return Expanded(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SvgPicture.asset(
+            iconPath,
+            width: 58,
+            height: 58,
+            colorFilter: const ColorFilter.mode(Color(0xFF1E293B), BlendMode.srcIn),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              color: const Color(0xFF1E293B),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -909,11 +1124,11 @@ class _KioskScreenState extends State<KioskScreen> {
   Widget _buildRetailCardIcon(RetailStore store) {
     switch (store) {
       case RetailStore.falabella:
-        return SvgPicture.asset('assets/images/store-falabella.svg', height: 24, semanticsLabel: 'Card Icon');
+        return SvgPicture.asset('assets/images/T-FALABELLA.svg', height: 32, semanticsLabel: 'Card Icon');
       case RetailStore.paris:
-        return Image.asset('assets/images/store-paris.png', height: 24, fit: BoxFit.contain);
+        return SvgPicture.asset('assets/images/T-CENCOSUD.svg', height: 32, semanticsLabel: 'Card Icon');
       case RetailStore.ripley:
-        return SvgPicture.asset('assets/images/store-ripley.svg', height: 24, semanticsLabel: 'Card Icon');
+        return SvgPicture.asset('assets/images/T-RIPLEY.svg', height: 32, semanticsLabel: 'Card Icon');
       case RetailStore.none:
         return const SizedBox.shrink();
     }
@@ -924,74 +1139,42 @@ class _KioskScreenState extends State<KioskScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.primary.withValues(alpha: 0.35), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+      body: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () {
+            provider.restoreKiosk();
+            _resumeVideos();
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [theme.primary, theme.primary.withValues(alpha: 0.85)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Icono + etiqueta de modo prueba
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.science_outlined, color: theme.primary, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'MODO PRUEBA',
-                  style: GoogleFonts.outfit(
-                    color: theme.primary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(Icons.fullscreen_exit, color: Colors.black, size: 36),
+                  const SizedBox(height: 12),
+                  Text(
+                    'VER DETALLES',
+                    style: GoogleFonts.outfit(
+                      color: Colors.black,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'El PC se restaurará automáticamente si queda inactivo.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey, fontSize: 9, height: 1.4),
-            ),
-            const SizedBox(height: 20),
-
-            // Botón principal: VER DETALLES
-            ElevatedButton(
-              onPressed: () {
-                // Restaurar ventana completa + abrir specs
-                provider.restoreKiosk();
-                _resumeVideos();
-                Future.delayed(const Duration(milliseconds: 400), _showSpecsDetail);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primary,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 0,
-              ),
-              child: Text(
-                'VER DETALLES',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -37,6 +37,7 @@ class _ScreensaverPlayerState extends State<ScreensaverPlayer> {
     
     _player.open(Playlist(playlist));
     _player.setPlaylistMode(PlaylistMode.loop);
+    _player.setVolume(0.0); // Muted
     
     setState(() {
       _initialized = true;

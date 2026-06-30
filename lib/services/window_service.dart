@@ -111,15 +111,20 @@ class WindowService {
 
     _idleTimer?.cancel();
     
+    final startTime = DateTime.now();
     const pollInterval = Duration(seconds: 2);
     const activityThresholdMs = 3000;
     bool isRestored = false;
 
     _idleTimer = Timer.periodic(pollInterval, (timer) {
       final idleTime = getSystemIdleTime();
+      final elapsedSinceStart = DateTime.now().difference(startTime).inMilliseconds;
+      
+      // El tiempo de inactividad real es el mínimo entre la inactividad del sistema y el tiempo transcurrido desde que empezamos
+      final effectiveIdleTime = idleTime < elapsedSinceStart ? idleTime : elapsedSinceStart;
       
       // Si la inactividad supera el límite, restaurar Zenit
-      if (!isRestored && idleTime >= idleLimitMs) {
+      if (!isRestored && effectiveIdleTime >= idleLimitMs) {
         isRestored = true;
         onIdleTrigger?.call();
         restoreKioskMode();
@@ -164,7 +169,10 @@ class WindowService {
 
     // 1. Remover pantalla completa y frame de ventana
     await windowManager.setFullScreen(false);
-    await windowManager.setHasShadow(true);
+    await windowManager.setHasShadow(false);
+    await windowManager.setResizable(false);
+    await windowManager.setAsFrameless();
+    await windowManager.setBackgroundColor(const ui.Color(0x00000000));
     
     // 2. Redimensionar a una ventana pequeña (240x200 lógicos)
     const double width = 240.0;
@@ -201,6 +209,7 @@ class WindowService {
     // 1. Ocultar bordes y forzar pantalla completa
     await windowManager.setFullScreen(true);
     await windowManager.setAlwaysOnTop(true);
+    await windowManager.setResizable(true);
     
     // 2. Simular ESCAPE para quitar del foco menús del sistema (Inicio, etc)
     simulateEscapeKey();

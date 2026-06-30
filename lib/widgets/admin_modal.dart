@@ -17,6 +17,7 @@ class _AdminModalState extends State<AdminModal> {
   String _activeTab = 'hardware';
   late final Map<String, dynamic> _editableSpecs;
   final _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController = ScrollController();
 
   // Catálogo estático de videos del sistema
   static const List<Map<String, String>> systemVideosCatalog = [
@@ -92,6 +93,7 @@ class _AdminModalState extends State<AdminModal> {
     _pricePrimaryController.dispose();
     _priceSecondaryController.dispose();
     _passwordController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -293,8 +295,8 @@ class _AdminModalState extends State<AdminModal> {
       backgroundColor: Colors.black.withValues(alpha: 0.85),
       body: Center(
         child: Container(
-          width: 800,
-          height: 650,
+          width: 1000,
+          height: 750,
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E1E),
             borderRadius: BorderRadius.circular(24),
@@ -333,9 +335,12 @@ class _AdminModalState extends State<AdminModal> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Desarrollado por Juan Marchant',
-                          style: TextStyle(color: Colors.grey, fontSize: 11),
+                        const Opacity(
+                          opacity: 0.01,
+                          child: Text(
+                            'Developed by Juan Marchant',
+                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
                         ),
                       ],
                     ),
@@ -361,12 +366,17 @@ class _AdminModalState extends State<AdminModal> {
 
               // Body scroll
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(30),
+                child: Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
                   child: SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: _buildTabContent(theme, provider),
+                    controller: _scrollController,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 30, right: 40, top: 15, bottom: 20),
+                      child: Form(
+                        key: _formKey,
+                        child: _buildTabContent(theme, provider),
+                      ),
                     ),
                   ),
                 ),
@@ -428,25 +438,28 @@ class _AdminModalState extends State<AdminModal> {
     final theme = RetailTheme.of(provider.store);
     final isActive = _activeTab == tabKey;
 
-    return GestureDetector(
-      onTap: () => setState(() => _activeTab = tabKey),
-      child: Container(
-        margin: const EdgeInsets.only(right: 15),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActive ? theme.primary : Colors.transparent,
-              width: 2.5,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _activeTab = tabKey),
+        child: Container(
+          margin: const EdgeInsets.only(right: 15),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isActive ? theme.primary : Colors.transparent,
+                width: 2.5,
+              ),
             ),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.grey,
-            fontSize: 14,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.grey,
+              fontSize: 14,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
         ),
       ),
@@ -463,7 +476,7 @@ class _AdminModalState extends State<AdminModal> {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 15,
             crossAxisSpacing: 20,
-            childAspectRatio: 2.8,
+            childAspectRatio: 4.2,
             children: [
               _buildHardwareField('brand', 'Marca (Auto-detectada)', disabled: true, theme: theme),
               _buildHardwareField('model', 'Modelo', theme: theme),
@@ -639,7 +652,7 @@ class _AdminModalState extends State<AdminModal> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Columna Izquierda: Inputs
+              // Columna Izquierda: Inputs (ahora expandida o con límite de ancho para diseño responsivo)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -680,20 +693,8 @@ class _AdminModalState extends State<AdminModal> {
                 ),
               ),
               const SizedBox(width: 40),
-              // Columna Derecha: Estado de Tienda (Badges)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Etiqueta / Estado de Tienda', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    const SizedBox(height: 12),
-                    _buildBadgeRadio('none', 'Ninguno (Normal)', theme),
-                    _buildBadgeRadio('delivery', 'Solo Despacho', theme),
-                    _buildBadgeRadio('no-stock', 'Sin Stock', theme),
-                    _buildBadgeRadio('last-unit', 'Última unidad', theme),
-                  ],
-                ),
-              ),
+              // Espacio vacío a la derecha para mantener simetría
+              const Spacer(),
             ],
           ),
 
@@ -804,44 +805,7 @@ class _AdminModalState extends State<AdminModal> {
     );
   }
 
-  Widget _buildBadgeRadio(String value, String label, RetailTheme theme) {
-    final active = (_editableSpecs['storeBadge'] ?? 'none') == value;
-    return GestureDetector(
-      onTap: () => setState(() => _editableSpecs['storeBadge'] = value),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: active ? theme.primary : Colors.grey,
-                  width: 2,
-                ),
-              ),
-              child: active
-                  ? Center(
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: theme.primary,
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Text(label, style: TextStyle(color: active ? Colors.white : Colors.grey, fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildVideoSelector({
     required String type,

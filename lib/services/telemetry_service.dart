@@ -87,7 +87,7 @@ class TelemetryService {
         $cpuName = ($cpu.Name -replace '\(R\)|\(TM\)', '').Trim() -replace '\s+', ' '
         $cores = $cpu.NumberOfCores
         $threads = $cpu.NumberOfLogicalProcessors
-
+ 
         # 2. Motherboard & Model Info
         $comp = Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer, Model
         $board = Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer, Product
@@ -100,9 +100,18 @@ class TelemetryService {
           $brand = 'VirtualBox'
           $model = 'Virtual Machine'
         }
-
+ 
         # 3. GPU Info
         $gpus = Get-CimInstance Win32_VideoController | Select-Object Name, CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate
+        $nvidiaWatts = ""
+        try {
+          if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
+            $val = (nvidia-smi -q -d POWER | Select-String "Max Power Limit" | Where-Object { $_ -notmatch "N/A" })
+            if ($val) {
+              $nvidiaWatts = $val.ToString().Split(':')[1].Replace('W','').Trim()
+            }
+          }
+        } catch {}
         
         # 4. Memory Info
         $physMem = Get-CimInstance Win32_PhysicalMemory | Select-Object Capacity, SMBIOSMemoryType, Speed
@@ -113,11 +122,11 @@ class TelemetryService {
         $disks = Get-CimInstance Win32_DiskDrive | Where-Object { $_.MediaType -notlike "*USB*" -and $_.Size -gt 0 }
         $totalStorageBytes = 0
         $disks | ForEach-Object { $totalStorageBytes += $_.Size }
-
+ 
         # 6. Operating System Info
         $osObj = Get-CimInstance Win32_OperatingSystem | Select-Object Caption
         $osName = ($osObj.Caption -replace 'Microsoft ', '').Trim()
-
+ 
         # Build output structure
         $out = @{
           brand = $brand
@@ -128,6 +137,7 @@ class TelemetryService {
           cores = $cores
           threads = $threads
           gpus = ($gpus | ForEach-Object { $_.Name })
+          nvidiaWatts = $nvidiaWatts
           resWidth = ($gpus | ForEach-Object { $_.CurrentHorizontalResolution })
           resHeight = ($gpus | ForEach-Object { $_.CurrentVerticalResolution })
           resRefresh = ($gpus | ForEach-Object { $_.CurrentRefreshRate })
@@ -139,8 +149,9 @@ class TelemetryService {
         }
         $out | ConvertTo-Json
       ''';
-
-      final result = await Process.run('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
+ 
+      final result = await Process.run('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script])
+          .timeout(const Duration(seconds: 4));
       if (result.exitCode == 0) {
         final Map<String, dynamic> raw = jsonDecode(result.stdout);
         
@@ -152,13 +163,13 @@ class TelemetryService {
           modelClean = (raw['boardProduct'] ?? 'PC Desktop').trim();
         }
         modelClean = _refineModelName(brandClean, modelClean);
-
+ 
         // CPU Vendor & Generation
         final cpuName = raw['cpu'] ?? '';
         final vendor = cpuName.contains('Intel') ? 'Intel' : (cpuName.contains('AMD') ? 'AMD' : (cpuName.toLowerCase().contains('snapdragon') || cpuName.toLowerCase().contains('qualcomm') ? 'Snapdragon' : 'Generic'));
         final gen = _detectCpuGeneration(cpuName);
-
-        // RAM capacité & type
+ 
+        // RAM capacidad & type
         final totalMemoryBytes = raw['ramTotal'] ?? 0;
         final ramDisplay = _getRamDisplay(totalMemoryBytes);
         
@@ -166,21 +177,26 @@ class TelemetryService {
         final List<dynamic> memorySpeeds = raw['ramSpeed'] is List ? raw['ramSpeed'] : [raw['ramSpeed']];
         
         final ramTypeDisplay = _detectRamType(memoryTypes, memorySpeeds);
-
+ 
         // GPU Selection
-        final List<dynamic> gpuList = raw['gpus'] is List ? raw['gpus'] : [raw['gpus']];
-        String gpuClean = _detectBestGpu(gpuList.cast<String>());
-
+        final List<dynamic> rawGpuList = raw['gpus'] is List ? raw['gpus'] : [raw['gpus']];
+        final List<String> gpuList = rawGpuList
+            .where((g) => g != null && g.toString().isNotEmpty)
+            .map((g) => g.toString())
+            .toList();
+        final wattsString = (raw['nvidiaWatts'] ?? '').toString().trim();
+        String gpuClean = _detectBestGpu(gpuList, wattsString.isEmpty ? null : wattsString);
+ 
         // Storage Info
         final totalStorageBytes = raw['storageTotal'] ?? 0;
         final storageDisplay = _getStorageDisplay(totalStorageBytes);
-
+ 
         // Display Info
         final List<dynamic> wList = raw['resWidth'] is List ? raw['resWidth'] : [raw['resWidth']];
         final List<dynamic> hList = raw['resHeight'] is List ? raw['resHeight'] : [raw['resHeight']];
         final List<dynamic> hzList = raw['resRefresh'] is List ? raw['resRefresh'] : [raw['resRefresh']];
         final displayDisplay = _formatDisplayResolution(wList, hList, hzList);
-
+ 
         return _cachedSpecs = SystemSpecs(
           brand: brandClean,
           model: modelClean,
@@ -349,7 +365,7 @@ class TelemetryService {
     return type;
   }
 
-  String _detectBestGpu(List<String> gpus) {
+  String _detectBestGpu(List<String> gpus, [String? nvidiaWatts]) {
     var bestGpu = 'Gráficos Integrados';
     var bestScore = 0;
 
@@ -363,11 +379,8 @@ class TelemetryService {
     }
 
     // Si es NVIDIA, intentar buscar el Wattage (TGP)
-    if (bestScore >= 10) {
-      final watts = _getNvidiaWatts();
-      if (watts != null) {
-        bestGpu = '$bestGpu ${watts}W';
-      }
+    if (bestScore >= 10 && nvidiaWatts != null) {
+      bestGpu = '$bestGpu ${nvidiaWatts}W';
     }
 
     return bestGpu;
@@ -380,23 +393,6 @@ class TelemetryService {
     if (up.contains('ARC')) return 5;
     if (up.contains('UHD') || up.contains('RADEON') || up.contains('IRIS') || up.contains('INTEL') || up.contains('AMD')) return 2;
     return 1;
-  }
-
-  String? _getNvidiaWatts() {
-    try {
-      final script = r'''
-        $val = (nvidia-smi -q -d POWER | Select-String "Max Power Limit" | Where-Object { $_ -notmatch "N/A" });
-        if ($val) { [int][float]($val.ToString().Split(':')[1].Replace('W','').Trim()) }
-      ''';
-      final result = Process.runSync('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
-      if (result.exitCode == 0) {
-        final stdout = result.stdout.toString().trim();
-        if (stdout.isNotEmpty && RegExp(r'^\d+$').hasMatch(stdout)) {
-          return stdout;
-        }
-      }
-    } catch (_) {}
-    return null;
   }
 
   String _getStorageDisplay(int totalBytes) {

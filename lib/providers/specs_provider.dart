@@ -74,11 +74,11 @@ class SpecsProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // 1. Inicializar servicios locales
-    _vault.initialize();
-    _window.initialize();
-
     try {
+      // 1. Inicializar servicios locales
+      _vault.initialize();
+      _window.initialize();
+
       // 2. Cargar specs guardados del store.json
       final stored = await _vault.loadSpecsFromStore();
       if (stored.containsKey('store')) {
@@ -267,8 +267,9 @@ class SpecsProvider extends ChangeNotifier {
   }
 
   // Invoca el watchdog de inactividad de Windows (cuando se minimiza)
-  void minimizeKioskWithOSWatchdog() {
-    _window.enterFloatingMode();
+  Future<void> minimizeKioskWithOSWatchdog() async {
+    await _window.enterFloatingMode();
+    notifyListeners();
     
     // Iniciar el monitor Win32 a nivel del SO
     _window.startSystemIdleMonitor(
@@ -286,9 +287,10 @@ class SpecsProvider extends ChangeNotifier {
     );
   }
 
-  void restoreKiosk() {
+  Future<void> restoreKiosk() async {
     _window.stopSystemIdleMonitor();
-    _window.restoreKioskMode();
+    await _window.restoreKioskMode();
+    notifyListeners();
     resetInAppActivityTimer();
   }
 
